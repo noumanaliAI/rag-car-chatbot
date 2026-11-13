@@ -1,95 +1,129 @@
-# MG ZS Car Manual RAG Chatbot
+# Car Manual RAG Chatbot
 
-**Author:** [@noumanaliai](https://github.com/noumanaliai)
+A command-line assistant that searches one or more car manuals and answers questions
+from the matching passages. Chat responses use the OpenRouter API, with
+`anthropic/claude-haiku-5.5` as the default model. Retrieval and its tests run locally
+without an API key.
 
-> A RAG-powered Q&A chatbot that reads your MG ZS owner's manual and answers car warning questions using LangChain + Anthropic Claude.
+## Features
 
-## Demo
+- Loads UTF-8 HTML, plain text, and Markdown manuals; removes scripts and styles from HTML.
+- Splits text into bounded, overlapping chunks, preferring paragraph and sentence boundaries.
+- Ranks passages locally with BM25. Exact manual terms (warning names, components, codes)
+  receive strong matches without sending the manual to an embedding service.
+- Supplies only retrieved passages to the model, includes source/chunk labels, and avoids
+  making a model call when no passage matches.
+- Reports missing/unsupported manuals, invalid input, missing API keys, and OpenRouter errors.
+- Includes an original, fictional sample manual for a no-key retrieval demonstration.
 
-Ask a question about your car warning, get an answer pulled directly from the manual — no searching needed.
+## Architecture
 
-## How It Works
-
+```text
+Manual files
+  -> car_rag.documents: validate, extract text, chunk with overlap
+  -> car_rag.retrieval: local BM25 search
+  -> car_rag.assistant: ground the question in ranked passages
+  -> car_rag.model: OpenRouter chat-completions API
+  -> answer + source labels
 ```
-Car Manual (HTML)
-  → UnstructuredHTMLLoader
-  → Text Chunks (1000 chars, 200 overlap)
-  → HuggingFace all-MiniLM-L6-v2 embeddings (free)
-  → ChromaDB Vector Store
 
-User Question
-  → Embed Query
-  → Retrieve Top-4 Relevant Chunks
-  → Claude Sonnet 4 (temperature=0)
-  → Answer
-```
+| Module | Responsibility |
+| --- | --- |
+| `car_rag/documents.py` | File validation, HTML text extraction, chunking |
+| `car_rag/retrieval.py` | BM25 indexing and ranked search |
+| `car_rag/assistant.py` | Retrieval-to-answer orchestration and grounding prompt |
+| `car_rag/model.py` | OpenRouter HTTP client and response/error validation |
+| `car_rag/config.py` | Environment configuration and defaults |
+| `car_rag/cli.py` | Command-line interface |
+| `tests/` | Offline tests for ingestion, retrieval, and answer behavior |
 
-## Tech Stack
+BM25 is a lightweight lexical retriever, which is especially useful for exact terms
+found in manuals. It normalizes common `tire`/`tyre` and `light`/`lamp` wording but
+does not infer general synonyms as an embedding search might; if your manual uses
+different terminology, include that wording in the question.
 
-- **LangChain** — RAG pipeline orchestration
-- **Anthropic Claude** — claude-sonnet-4-6 (LLM)
-- **HuggingFace** — all-MiniLM-L6-v2 embeddings (free, no API key needed)
-- **ChromaDB** — vector store / similarity search
-- **Datacamp Workspace** — run environment
+## Technologies
+
+- Python 3.10+
+- OpenRouter's OpenAI-compatible chat-completions endpoint
+- Claude Haiku 5.5 by default (`anthropic/claude-haiku-5.5`)
+- Python standard library for HTML parsing, chunking, ranking, and HTTP
 
 ## Setup
 
-### 1. Prerequisites
+1. Create and activate a virtual environment:
 
-- Python 3.10+
-- Anthropic API key (`ANTHROPIC_API_KEY`) — get one at [console.anthropic.com](https://console.anthropic.com)
+   ```powershell
+   py -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   ```
 
-### 2. Install Dependencies
+2. Install dependencies:
 
-```bash
-pip install -r requirements.txt
-```
+   ```powershell
+   python -m pip install -r requirements.txt
+   ```
 
-### 3. Configure API Key
+3. Copy `.env.example` to `.env`, then set your OpenRouter key:
 
-Copy `.env.example` to `.env` and add your key:
+   ```text
+   OPENROUTER_API_KEY=your-openrouter-api-key
+   OPENROUTER_MODEL=anthropic/claude-haiku-5.5
+   OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+   ```
 
-```bash
-cp .env.example .env
-```
-
-Then in your notebook or script:
-
-```python
-import os
-from dotenv import load_dotenv
-load_dotenv()
-```
-
-### 4. Upload Your Manual
-
-Place your MG ZS HTML manual (e.g. `mg-zs-warning-messages.html`) in your Datacamp Workspace or project directory.
-
-### 5. Run
-
-Paste `main.py` into a notebook cell (after your setup cell with loader) and run it.
+   The key is read from `.env` or the process environment. Never commit your real key.
+   The model and base URL can be overridden with `OPENROUTER_MODEL` and
+   `OPENROUTER_BASE_URL`; an optional site URL/name can be set using the variables
+   shown in `.env.example`.
 
 ## Usage
 
-```python
-query = "The Gasoline Particular Filter Full warning has appeared. What should I do?"
-answer = rag_chain.invoke(query)
-print(answer.content)
+Ask a question against one or multiple manuals:
+
+```powershell
+python main.py --manual "C:\manuals\vehicle.html" --question "What does the battery warning mean?"
 ```
 
-Change the `query` variable to ask anything from the manual.
+Supported input formats: `.html`, `.htm`, `.txt`, `.md`. Use repeated paths after
+`--manual` for multiple documents:
 
-## Project Structure
-
-```
-rag-car-chatbot/
-├── main.py              # Main RAG pipeline
-├── requirements.txt     # Dependencies
-├── .env.example          # Env template (copy to .env)
-├── .gitignore            # Ignores .env, __pycache__, chroma_db/
-└── README.md             # This file
+```powershell
+python -m car_rag --manual manual-one.html manual-two.txt --question "How should I check tyre pressure?"
 ```
 
-## License
+Tune the number of retrieved passages with `--top-k` (default: 4). To preview the
+retrieved passages without a key or network request:
 
-MIT — feel free to use and modify.
+```powershell
+python main.py --manual demo\sample-car-manual.txt --question "What does the battery warning mean?" --retrieve-only
+```
+
+The demo file is deliberately fictional. Its sample text is not an official vehicle
+manual and is not service or operating advice. For real vehicles, use the correct
+manufacturer manual and qualified service professionals.
+
+## Demo
+
+Run the retrieval-only command above. It should return the sample's **Battery warning**
+passage, including the statements that the charging system may not be charging the
+battery correctly and that a qualified service technician should check it. No API key
+is used in this mode.
+
+For an actual generated answer, omit `--retrieve-only` after configuring the key:
+
+```powershell
+python main.py --manual demo\sample-car-manual.txt --question "What should I do if the engine temperature warning appears?"
+```
+
+The answer includes the manual filename and chunk number used as sources. The chatbot
+is informational only; treat dashboard warnings and urgent vehicle problems according
+to the official manual and appropriate professional guidance.
+
+## Tests
+
+Tests use the Python standard library and do not call OpenRouter:
+
+```powershell
+python -m unittest discover -v
+```

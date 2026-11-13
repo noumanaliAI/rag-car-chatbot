@@ -1,7 +1,1 @@
-langchain
-langchain-anthropic
-langchain-community
-chromadb
-beautifulsoup4
-sentence-transformers
-python-dotenv
+# No external runtime dependencies; the application uses the Python standard library.
