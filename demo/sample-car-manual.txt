@@ -1,0 +1,21 @@
+DEMO MANUAL - FICTIONAL VEHICLE
+This short, fictional excerpt exists only to demonstrate the chatbot. It is not
+an official manual and must not be used to service or operate a real vehicle.
+
+Battery warning
+If the red battery warning lamp remains illuminated while the engine is
+running, the charging system may not be charging the battery correctly. Turn
+off non-essential electrical equipment and arrange a check by a qualified
+service technician. If the vehicle behaves unexpectedly, stop in a safe place.
+
+Tyre pressure warning
+The tyre pressure warning lamp means one or more tyres may be below the
+recommended pressure. When it is safe, inspect all tyres and compare their
+pressures with the values on the vehicle's tyre information label. Do not rely
+on the warning lamp as a substitute for regular tyre inspection.
+
+Engine temperature warning
+If the engine temperature warning appears, pull over safely as soon as
+possible and switch off the engine. Do not open the coolant reservoir while it
+is hot. Contact a qualified service technician if the warning remains or
+coolant is leaking.
